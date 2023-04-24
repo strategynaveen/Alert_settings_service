@@ -5,7 +5,27 @@ import json
 import smtplib
 from email.mime.text import MIMEText
 import datetime
+import logging
 
+# logger file creation
+def alert_service_log(msg,val):
+    logging.basicConfig(filename='alert_service_log.log', format='%(asctime)s %(message)s', level=logging.DEBUG)
+    single_msg = str(msg)+str(val)
+    logging.debug(single_msg)
+
+# logger header
+def logger_header_title(hmsg,count):
+    file1 = open("alert_service_log.log", "a")  # append mode
+    file1.write("Alert service count "+str(hmsg)+" count no : "+str(count))
+    file1.close()
+
+
+# logger space
+def logger_space():
+    file2 = open("alert_service_log.log", "a")
+    file2.write(" ")
+    file2.write(" ")
+    file2.close()
 
 # mysql alert settings matched timstamp updated
 def update_matched_time(aid,future_time):
@@ -110,17 +130,24 @@ def work_alert(set_arr,final_res):
 def check_metrics(res,li):
     result = ""
     set_val = float(li[4])
-    if li[2]=="planned_downtime":
+    # if li[2]=="planned_downtime":
+    #     get_val = float(res)
+    # elif li[2]=="unplanned_downtime":
+    #     get_val = float(res)
+    # elif li[2]=="planned_machine_off":
+    #     get_val = float(res)
+    # elif li[2]=="unplanned_machine_off":
+    #     get_val = float(res)
+    # else:
+    #     get_val = float(res)
+   
+    if res != None:
         get_val = float(res)
-    elif li[2]=="unplanned_downtime":
-        get_val = float(res)
-    elif li[2]=="planned_machine_off":
-        get_val = float(res)
-    elif li[2]=="unplanned_machine_off":
-        get_val = float(res)
-    else:
-        get_val = float(res)
+    elif res == None:
+        get_val = 0
 
+    alert_msg = "alert metrics aid"+str(li[0])+" the metrics is"+str(get_val)+" "+str(li[3])+" "+str(set_val)
+    
     #print(get_val)
     #print(set_val)
     if(li[3]=='<'):
@@ -150,6 +177,7 @@ def check_metrics(res,li):
             result="fail"
         
     print(result)
+    alert_service_log(alert_msg,result)
     print(get_val)
     print(set_val)
     print(li[4])
@@ -173,6 +201,7 @@ def check_metrics(res,li):
             if li[20]=="all":
                 work_alert(li,get_val)
                 mail_alert(li,get_val)
+
             elif li[20]=="work":
                 work_alert(li,get_val)
             elif li[20]=="email":
@@ -231,9 +260,11 @@ def analysis_metrics(i):
     api_array = requests.post("http://localhost/smartories/index.php",params=par)
     #final_api_record = json.dumps(api_array)
     print(api_array.status_code)
+    alert_service_log("Alert service api status",api_array.status_code)
     if api_array.status_code == 200:
         rp = api_array.json()
         print(rp)
+        alert_service_log("Alert service api data",rp)
         # print(len(rp))
         print(i)
         # final_res = check_metrics(rp,i)
@@ -274,11 +305,18 @@ def mysql_res():
 
     for i in myres:
         print('')
+        alert_service_log("Alert service id",i[0])
         analysis_metrics(i)
 
 k = 0
 while True:
     k = k+1
+    current_time_insert_log = datetime.datetime.now()
+    current_time_insert_log = current_time_insert_log.strftime("%Y-%m-%dT%H:00:00")
+
+    logger_header_title(current_time_insert_log,k)
+    logger_space()
     mysql_res()
     print("end count of ",k)
+    logger_space()
     time.sleep(60)

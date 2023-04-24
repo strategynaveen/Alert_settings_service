@@ -1204,7 +1204,7 @@ class Api_handling{
             
         }
 
-        
+
     }
 
     
@@ -1212,31 +1212,31 @@ class Api_handling{
 }
 
 
-// $obj = new Api_handling($_GET['site_id']);
-// // echo "<pre>";
-// // $fromtime = "2023-04-05T10:00:00";
-// // $totime = "2023-04-05T13:00:00";
-// // $res = "PlannedDowntime";
-// $temp['from_time'] = $_GET['from_time'];
-// $temp['to_time'] = $_GET['to_time'];
-// $temp['res'] = $_GET['res'];
-// $temp['machine_arr'] = $_GET['machine_arr'];
-// $temp['part_arr'] = $_GET['part_arr'];
+$obj = new Api_handling($_GET['site_id']);
+// echo "<pre>";
+// $fromtime = "2023-04-05T10:00:00";
+// $totime = "2023-04-05T13:00:00";
+// $res = "PlannedDowntime";
+$temp['from_time'] = $_GET['from_time'];
+$temp['to_time'] = $_GET['to_time'];
+$temp['res'] = $_GET['res'];
+$temp['machine_arr'] = $_GET['machine_arr'];
+$temp['part_arr'] = $_GET['part_arr'];
 
-// echo  json_encode($obj->get_final_result($temp));
-
-
+echo  json_encode($obj->get_final_result($temp));
 
 
 
-$obj = new Api_handling('s1001');
-$temp['from_time'] = "2023-04-21T06:00:00";
-$temp['to_time'] = "2023-04-22T17:00:00";
-$temp['res'] = "total_rejection";
-$temp['machine_arr'] = "all,MC1001,MC1002,MC1003,MC1004,MC1005,MC1006";
-$temp['part_arr'] = "all,PT1001,PT1002,PT1003,PT1004,PT1005,PT1006,PT1007,PT1008,PT1009,PT1010,PT1011,PT1012,PT1013,PT1014,PT1015,PT1016,PT1017,PT1018,PT1019,PT1020,PT1021,PT1022,PT1023,PT1024,PT1025,PT1026,PT1027,PT1028,PT1029,PT1030,PT1031,PT1032,PT1033,PT1034,PT1035,PT1036,PT1037,PT1038,PT1039,PT1040,PT1041,PT1042,PT1043,PT1044,PT1045";
-echo "<pre>";
-print_r($obj->get_final_result($temp));
+
+
+// $obj = new Api_handling('s1001');
+// $temp['from_time'] = "2023-04-21T06:00:00";
+// $temp['to_time'] = "2023-04-22T17:00:00";
+// $temp['res'] = "total_rejection";
+// $temp['machine_arr'] = "all,MC1001,MC1002,MC1003,MC1004,MC1005,MC1006";
+// $temp['part_arr'] = "all,PT1001,PT1002,PT1003,PT1004,PT1005,PT1006,PT1007,PT1008,PT1009,PT1010,PT1011,PT1012,PT1013,PT1014,PT1015,PT1016,PT1017,PT1018,PT1019,PT1020,PT1021,PT1022,PT1023,PT1024,PT1025,PT1026,PT1027,PT1028,PT1029,PT1030,PT1031,PT1032,PT1033,PT1034,PT1035,PT1036,PT1037,PT1038,PT1039,PT1040,PT1041,PT1042,PT1043,PT1044,PT1045";
+// echo "<pre>";
+// print_r($obj->get_final_result($temp));
 
 
 
