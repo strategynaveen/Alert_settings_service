@@ -51,27 +51,46 @@ def mail_alert(set_arr,final_res):
     print("mail function")
     print(set_arr)
     print(final_res)
+    print(set_arr[9])
+    print(set_arr[10])
     to_mail_arr = set_arr[9].split(',')
-    # cc_mail_arr = set_arr[10].split(',')
-    for i in range(len(to_mail_arr)):
+    cc_mail_arr = set_arr[10].split(',')
+    print("array mail")
+    print(to_mail_arr)
+    print(cc_mail_arr)
+    if len(to_mail_arr)>1 and len(cc_mail_arr)>1:
+        recipients = to_mail_arr + cc_mail_arr
 
-        subject = "SmartMach Alert"+' '+set_arr[16]
-        body = set_arr[2]+' '+str(final_res)+' '+set_arr[3]+' '+set_arr[4]
-        sender = "support@smartories.com"
-        recipients = to_mail_arr[i]
-        # cc_recipents = cc_mail_arr[i]
-        password = "05dqXkeU8gHm"
-        msg = MIMEText(body)
-        msg['Subject'] = subject
-        msg['From'] = sender
-        msg['To'] = recipients
-        # msg['Cc'] = cc_recipents
+    elif len(to_mail_arr)>1 and len(cc_mail_arr)<=1:
+        recipients = to_mail_arr + [set_arr[10]]
+
+    elif len(to_mail_arr)<=1 and len(cc_mail_arr)>1:
+        recipients = [set_arr[9]]+cc_mail_arr
+    
+    elif len(to_mail_arr)<=1 and len(cc_mail_arr)<=1:
+        recipients = [set_arr[9]] + [set_arr[10]]
         
-        smtp_server = smtplib.SMTP_SSL('smtppro.zoho.in', 465)
-        smtp_server.login(sender, password)
-        smtp_server.sendmail(sender, recipients, msg.as_string())
-        smtp_server.quit()
-        print("mail function")
+    # for i in range(len(to_mail_arr)):
+    print("recipients")
+    print(recipients)
+    subject = "SmartMach Alert"+' '+set_arr[16]
+    body = set_arr[2]+' '+str(final_res)+' '+set_arr[3]+' '+set_arr[4]
+    sender = "support@smartories.com"
+
+    to_arr_email = set_arr[9].split(',')
+    cc_arr_email = set_arr[10].split(',')
+    password = "05dqXkeU8gHm"
+    msg = MIMEText(body)
+    msg['Subject'] = subject
+    msg['From'] = sender
+    msg['To'] = ', '.join(to_arr_email)
+    msg['Cc'] = ', '.join(cc_arr_email)
+      
+    smtp_server = smtplib.SMTP_SSL('smtppro.zoho.in',465)
+    smtp_server.login(sender, password)
+    smtp_server.sendmail(sender, recipients, msg.as_string())
+    smtp_server.quit()
+    print("mail function end")
 # get work order id 
 def get_work_order_id(tmp_site_id):
     tmp_site_id = tmp_site_id.upper()
@@ -148,8 +167,8 @@ def check_metrics(res,li):
 
     alert_msg = "alert metrics aid"+str(li[0])+" the metrics is"+str(get_val)+" "+str(li[3])+" "+str(set_val)
     
-    #print(get_val)
-    #print(set_val)
+    print(get_val)
+    print(set_val)
     if(li[3]=='<'):
         if(get_val < set_val):
             result="success"
@@ -305,7 +324,7 @@ def mysql_res():
 
     for i in myres:
         print('')
-        alert_service_log("Alert service id",i[0])
+        alert_service_log("Alert service id",i)
         analysis_metrics(i)
 
 k = 0
@@ -319,4 +338,4 @@ while True:
     mysql_res()
     print("end count of ",k)
     logger_space()
-    time.sleep(60)
+    time.sleep(3600)

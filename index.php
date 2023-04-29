@@ -48,7 +48,7 @@ class Api_handling{
     public function getMachineWiseOEE($from_date,$to_date){
 
         // $ref = "MachinewiseOEE";
-        $ref="MachinewiseOEE";
+        $ref="planned_unplanned_machine_off";
        
         $fromTime = $from_date;
         $toTime = $to_date;
@@ -121,6 +121,7 @@ class Api_handling{
         $tmpToDate = explode("T", $toTime);
 
         //Difference between two dates......
+
         $diff = abs(strtotime($toTime) - strtotime($fromTime)); 
         $AllTime = 0;   
 
@@ -335,11 +336,14 @@ class Api_handling{
         if ($graphRef == "PLOpportunity") {
             return $downtime;
         }
+        if ($graphRef == "planned_unplanned_machine_off") {
+            return $downtime;
+        }
 
         //Machine wise Performance,Quality,Availability........
 
         $MachineWiseData = [];
-        return $downtime;
+        // return $downtime;
         foreach ($downtime as $down) {
             $PlannedDownTime = $down['Planned'];
             $UnplannedDownTime = $down['Unplanned'];
@@ -465,11 +469,377 @@ class Api_handling{
         $Overall = $this->calculateOverallOEE($MachineWiseData);
         
         if ($graphRef == "Overall") {
-            return $Overall;
+            return $MachineWiseData;
         }
     }
 
 
+
+    // get oee raw data function
+    public function getDataRaw_oee($graphRef,$fromTime=null,$toTime=null,$machine_arr,$part_arr){
+        // Calculation for to find ALL time value
+        $tmpFromDate =explode("T", $fromTime);
+        $tmpToDate = explode("T", $toTime);
+
+        //Difference between two dates......
+
+        $diff = abs(strtotime($toTime) - strtotime($fromTime)); 
+        $AllTime = 0;   
+
+        //time split for date+time seperated values
+        $tmpFrom = explode("T",$fromTime);
+        $tmpTo = explode("T",$toTime);
+        // temporary time......
+        $tempFrom = explode(":",$tmpFrom[1]);
+        $tempTo = explode(":",$tmpTo[1]);
+
+        //From date
+        $FromDate = $tmpFrom[0];
+        //milli seconds added ":00", because in real data milli seconds added
+        $FromTime = $tempFrom[0].":00".":00";
+        //To Date
+        $ToDate = $tmpTo[0];
+        $ToTime = $tempTo[0].":00".":00";
+
+        // // Data from reason mapping table...........
+        $output = $this->data->getDataRaw($FromDate,$FromTime,$ToDate,$ToTime);
+        // return $output;
+    
+        // Data from PDM Events table for find the All Time Duration...........
+        $getAllTimeValues = $this->data->getDataRawAll($FromDate,$ToDate);
+
+        $getOfflineId = $this->data->getOfflineEventId($FromDate,$FromTime,$ToDate,$ToTime);
+        // return $getOfflineId;
+        // Get the Machine Record.............
+        $machine = $this->data->getMachineRecActive($FromDate,$ToDate);
+
+        //Part list Details from Production Info Table between the given from and To durations......
+        $part = $this->data->getPartRec($FromDate,$ToDate);
+
+        //Production Data for PDM_Production_Info Table......
+        $production = $this->data->getProductionRec($FromDate,$ToDate);
+        // return $production;
+        // Get the Inactive(Current) Data.............
+        $getInactiveMachine = $this->data->getInactiveMachineData();
+
+        // Date Filte for PDM Reason Mapping Data........
+        $len_id = sizeof($getOfflineId);
+        // return $output;
+        // remove offline records in pdm reason mapping
+        foreach ($output as $key => $value) {
+            $check_no = 0;
+            for($i=0;$i<$len_id;$i++){
+                if ($getOfflineId[$i]['machine_event_id'] == $value['machine_event_id']) {
+                    unset($output[$key]);
+                    $check_no = 1;
+                   
+
+                    break;
+                }
+            }
+            if($check_no == 0){
+                if ($value['split_duration']<0) {
+                    unset($output[$key]);
+                }
+                else{
+                    if ($value['shift_date'] == $FromDate && $value['start_time'] <= $FromTime && $value['end_time'] >= $FromTime) {
+                        $output[$key]['start_time'] = $FromTime;
+                        if ($value['end_time']>= $ToTime) {
+                            $output[$key]['end_time'] = $ToTime;
+                        }
+                        $output[$key]['split_duration'] = $this->getDuration($value['calendar_date']." ".$output[$key]['start_time'],$value['calendar_date']." ".$output[$key]['end_time']);
+                    }
+                    else if (($value['shift_date'] == $ToDate && $value['start_time']>=$value['end_time']) || $value['shift_date'] == $ToDate && $value['end_time'] >= $ToTime) {
+                        $output[$key]['end_time'] = $ToTime;
+                        $output[$key]['split_duration'] = $this->getDuration($value['calendar_date']." ".$output[$key]['start_time'],$value['calendar_date']." ".$output[$key]['end_time']);
+                    }
+                    else{
+                        if ($value['shift_date'] == $FromDate  && strtotime($value['start_time']) < strtotime($FromTime)){
+                            unset($output[$key]);
+                        }
+                        if ($value['shift_date'] == $FromDate  && $value['start_time'] >= $ToTime){
+                            unset($output[$key]);
+                        }
+
+                        if ($value['shift_date'] == $ToDate  && strtotime($value['start_time']) > strtotime($ToTime)) {
+                            unset($output[$key]);
+                        }
+                    }
+
+                    //For remove the current data of inactive machines.........
+                    foreach ($getInactiveMachine as $v) {
+                        $t = explode(" ", $v['max(r.last_updated_on)']);
+
+                        if ($value['shift_date'] >= $t[0]  && $value['start_time'] > $t[1] && $value['machine_id'] == $v['machine_id']){
+                            unset($output[$key]);
+                        }
+                    }
+                }
+            }
+        }
+        // return $output;
+        // Filter for Find the All Time.............
+        foreach ($getAllTimeValues as $key => $value) {
+            if ($value['duration']<0) {
+                unset($getAllTimeValues[$key]);
+            }
+            else{
+                if ($value['shift_date'] == $FromDate && $value['start_time'] <= $FromTime && $value['end_time'] >= $FromTime) {
+                    $getAllTimeValues[$key]['start_time'] = $FromTime;
+                    if ($value['end_time']>= $ToTime) {
+                        $getAllTimeValues[$key]['end_time'] = $ToTime;
+                    }
+                    $getAllTimeValues[$key]['duration'] = $this->getDuration($value['calendar_date']." ".$getAllTimeValues[$key]['start_time'],$value['calendar_date']." ".$getAllTimeValues[$key]['end_time']);
+                }
+                else if (($value['shift_date'] == $ToDate && $value['start_time']>=$value['end_time']) || $value['shift_date'] == $ToDate && $value['end_time'] >= $ToTime) {
+                    $getAllTimeValues[$key]['end_time'] = $ToTime;
+                    $getAllTimeValues[$key]['duration'] = $this->getDuration($value['calendar_date']." ".$getAllTimeValues[$key]['start_time'],$value['calendar_date']." ".$getAllTimeValues[$key]['end_time']);
+                }
+                else{
+                    if ($value['shift_date'] == $FromDate  && $value['start_time'] < $FromTime){
+                        unset($getAllTimeValues[$key]);
+                    }
+                    if ($value['shift_date'] == $ToDate  && strtotime($value['end_time']) > strtotime($ToTime)) {
+                        unset($getAllTimeValues[$key]);
+                    }
+
+                    if ($value['shift_date'] == $FromDate  && $value['start_time'] >= $ToTime){
+                        unset($getAllTimeValues[$key]);
+                    }
+                }
+
+                //For remove the current data of inactive machines.........
+                foreach ($getInactiveMachine as $v) {
+                    $t = explode(" ", $v['max(r.last_updated_on)']);
+
+                    if ($value['shift_date'] >= $t[0]  && $value['start_time'] > $t[1] && $value['machine_id'] == $v['machine_id']){
+                        unset($getAllTimeValues[$key]);
+                    }
+                }
+            }
+        }   
+
+        // Filter for Production Info Table Data..........
+        // prodcution data time filter
+        foreach ($production as $key => $value) {   
+            if ($value['shift_date'] == $FromDate  && $value['start_time'] < $FromTime) {
+                unset($production[$key]);
+            }
+            if ($value['shift_date'] == $FromDate  && $value['start_time'] >= $ToTime){
+                    unset($production[$key]);
+                }
+
+            if (strtotime($value['shift_date']) == strtotime($ToDate)  && ($value['start_time']) >= ($ToTime)) {
+                unset($production[$key]);
+            }
+            //For remove the current data of inactive machines.........
+            foreach ($getInactiveMachine as $v) {
+                $t = explode(" ", $v['max(r.last_updated_on)']);
+                if ($value['shift_date'] == $t[0]  && $value['start_time'] > $t[1] && $value['machine_id'] == $v['machine_id'] OR $value['shift_date'] > $t[0] && $value['machine_id'] == $v['machine_id']){
+                    unset($production[$key]);
+                }
+            }
+        }
+
+        //Downtime reasons data ordering.....
+        // return $output;
+        $MachineWiseDataRaw = $this->storeData($output,$machine,$part);
+
+        // Machine-Wise Downtime........
+        $allTimeValues = $this->allTimeFound($getAllTimeValues,$machine,$part,$FromDate,$ToDate);
+
+        // Day-wise With Machine-Wise Downtime....
+        $allTimeValuesDay = $this->allTimeFoundDay($getAllTimeValues,$machine,$part,$FromDate,$ToDate);
+
+        //Function return for qualityOpportunity graph........
+        // if ($graphRef == "qualityOpportunity") {
+        //     return $production;
+        // } 
+
+        // if ($graphRef  == "AvailabilityReasonWise") {
+        //     return $output;
+        // }
+
+        // if($graphRef == "OpportunityTrendDay"){         
+        //     $res['raw'] = $MachineWiseDataRaw;
+        //     $res['machine'] = $machine;
+        //     $res['part'] = $part;
+        //     $res['downtimeTime']=$allTimeValuesDay;
+        //     return $res;
+        // }
+        
+        //Part Details.....
+        $partsDetails = $this->data->settings_tools(); 
+        
+        //Downtime data has been calculated......
+        // To find Planned Downtime, Unplanned Downtime, Machine OFF Downtime.........
+        //return $getAllTimeValues;
+        if ($graphRef == "PLOpportunity") {
+            $downtime = $this->oeeData($MachineWiseDataRaw,$getAllTimeValues,true);
+        }else{
+            $downtime = $this->oeeData($MachineWiseDataRaw,$getAllTimeValues);
+        }
+
+        // if ($graphRef == "PartPLOpportunity") {
+        //     $res['production'] = $production;
+        //     $res['downtime'] = $downtime;
+        //     return $res;
+        // }
+        
+        // //Function return for performanceOpportunity graph........
+        // if ($graphRef == "PerformanceOpportunity") {
+        //     $res['production'] = $production;
+        //     $res['downtime'] = $downtime;
+        //     $res['machineData'] = $MachineWiseDataRaw;
+        //     $res['all']=$allTimeValues;
+        //     return $res;
+        // }
+
+        //Function return for Profit and Loss Opportunity..........
+        // if ($graphRef == "PLOpportunity") {
+        //     return $downtime;
+        // }
+        // if ($graphRef == "planned_unplanned_machine_off") {
+        //     return $downtime;
+        // }
+
+        //Machine wise Performance,Quality,Availability........
+
+        $MachineWiseData = [];
+            // return $downtime;
+        foreach ($downtime as $down) {
+            $PlannedDownTime = $down['Planned'];
+            $UnplannedDownTime = $down['Unplanned'];
+            $MachineOFFDownTime = $down['Machine_OFF'];
+            $All = 0;
+            if (in_array($down['Machine_ID'],$machine_arr)) {
+                foreach ($allTimeValues as $a) {
+                    if ($a['machine_id']==$down['Machine_ID']) {
+                        $All = floatval($a['duration']);
+                    }
+                }
+                if ($All >0) {
+                    $TotalCTPP_NICT = 0;
+                    $TotalCTPP = 0;
+                    $TotalReject = 0;
+                    $TotalCTPP_NICT_Arry = [];
+                    $tmp_demo_data = [];
+                    foreach ($part as $p) {
+                        if (in_array($p['part_id'],$part_arr)) {
+                                               
+                            $tmpCorrectedTPP_NICT = 0;
+                            $tmpCorrectedTPP = 0;
+                            $tmpReject = 0;
+                            $part_tmp_arr = [];
+
+                            foreach ($production as $product) {
+                                if ($product['machine_id'] == $down['Machine_ID'] && $p['part_id'] == $product['part_id']) {
+                                    //To find NICT.....
+                                    $NICT = 0;
+
+                                    foreach ($partsDetails as $partVal) {
+                                        if ($p['part_id'] == $partVal->part_id) {
+                                            $mnict = explode(".", $partVal->NICT);
+                                            if (sizeof($mnict)>1) {
+                                                $NICT = (($mnict[0]/60)+($mnict[1]/1000));
+                                            }else{
+                                                $NICT = ($mnict[0]/60);
+                                            }
+                                        }
+                                    }
+
+                                    $corrected_tpp = (int)$product['production']+(int)($product['corrections']);
+                                    $CorrectedTPP_NICT = $NICT*$corrected_tpp;
+                                    // For Find Performance.....
+                                    $tmpCorrectedTPP_NICT = $tmpCorrectedTPP_NICT+$CorrectedTPP_NICT;
+
+                                    //For Find Quality.......
+                                    $tmpCorrectedTPP = $tmpCorrectedTPP+$corrected_tpp;
+                                    $tmpReject = $tmpReject+$product['rejections'];
+                                
+                                    $tmp_data['machine_id'] = $product['machine_id'];
+                                    $tmp_data['part_id'] = $product['part_id'];
+                                    // return $tmp_data;
+                                    array_push($part_tmp_arr,$tmp_data);
+                                }
+                            }
+                            // return $part_tmp_arr;
+                            $TotalCTPP_NICT =$TotalCTPP_NICT+$tmpCorrectedTPP_NICT;
+                            $TotalCTPP =$TotalCTPP+$tmpCorrectedTPP;
+                            $TotalReject = $TotalReject+$tmpReject;
+                            // $tmp_demo_data = $part_tmp_arr;
+                        }
+                    }
+
+                    array_push($tmp_demo_data,$part_tmp_arr);
+                    //Machine Wise Performance ......
+                    $tp=floatval($All)-(floatval($down['Planned'])+floatval($down['Unplanned'])+floatval($down['Machine_OFF']));
+                    $performance=0;
+
+                    if (floatval($tp)>0) {
+                        $performance = floatval($TotalCTPP_NICT)/floatval($tp);
+                    }
+                    else{
+                        $performance=0;
+                    }
+                    
+                    //Machine Wise Quality ......
+                    if ($TotalCTPP <=0) {
+                        $quality = 0;
+                    }
+                    else{
+                        $quality = floatval(((floatval($TotalCTPP) - floatval($TotalReject))/floatval($TotalCTPP)));
+                    }
+
+                    //Machine Wise Availability ......
+                    if (floatval($All-(floatval($down['Planned'])+floatval($down['Machine_OFF']))) >0) {
+                        $availability = floatval($All-(floatval($down['Planned'])+floatval($down['Unplanned'])+floatval($down['Machine_OFF'])))/($All-(floatval($down['Planned'])+floatval($down['Machine_OFF'])));
+                    }
+                    else{
+                        $availability=0;
+                    }
+
+                    // Machine Wise Availability TEEP.......
+                    if (floatval($All) >0) {
+                        $availTEEP = (($All-($down['Planned']+$down['Unplanned']+$down['Machine_OFF']))/($All));
+                    }else{
+                        $availTEEP=0;
+                    }
+                    // Machine Wise Availability OOE.....
+                    if (floatval($All-$down['Machine_OFF'])>0) {
+                        $availOOE = (($All-($down['Planned']+$down['Unplanned']+$down['Machine_OFF']))/($All-$down['Machine_OFF']));
+                    }
+                    else{
+                        $availOOE=0;
+                    }
+                    //Machine Wise OEE .......
+                    $oee = number_format(($performance*$quality*$availability),2);
+
+                    // Machine Wise TEEP.....
+                    $teep = number_format(($performance*$quality*$availTEEP),2);
+                    // Machine Wise OOE.....
+                    $ooe = number_format(($performance*$quality*$availOOE),2);
+
+                    //Store Machine wise Data......
+                    $tmp = array("Machine_Id"=>$down['Machine_ID'],"Availability"=>$availability*100,"Performance"=>$performance*100,"Quality"=>$quality*100,"Availability_TEEP"=>$availTEEP*100,"Availability_OOE"=>$availOOE*100,"OEE"=>$oee*100,"TEEP"=>$teep*100,"OOE"=>$ooe*100,"part_data"=>$tmp_demo_data);
+                    array_push($MachineWiseData, $tmp);
+                }
+            }
+        }
+
+        if ($graphRef == "MachinewiseOEE") {
+            return $MachineWiseData;
+        }
+        if ($graphRef == "ReasonwiseMachine") {
+            return $downtime;
+        }
+
+        $Overall = $this->calculateOverallOEE($MachineWiseData);
+        
+        if ($graphRef == "Overall") {
+            return $Overall;
+        }
+    }
     // duration function
     public function getDuration($f,$t){
         $from_time = strtotime($f); 
@@ -951,58 +1321,359 @@ class Api_handling{
 
     }
 
+    // get all oee data function
+    public function get_oee_data($fdate,$tdate,$machine_arr,$part_arr){
+        // $tmp['fdate'] = $fdate;
+        // $tmp['tdate'] = $tdate;
+        // $tmp['machine_arr'] = $machine_arr;
+        // $tmp['part_arr'] = $part_arr;
+        // return $tmp;
+        $ref="Overall";
+        $fromTime = $fdate;
+        $toTime = $tdate;
+      
+        $Overall = $this->getDataRaw_oee($ref,$fromTime,$toTime,$machine_arr,$part_arr);
+        return $Overall['Overall_OEE'];
+    }
+
+
+    // get all ooe data function
+    public function get_ooe_data($fdate,$tdate,$machine_arr,$part_arr){
+        $ref="Overall";
+        $fromTime = $fdate;
+        $toTime = $tdate;
+      
+        $Overall = $this->getDataRaw_oee($ref,$fromTime,$toTime,$machine_arr,$part_arr);
+        return $Overall['Overall_OOE'];
+    }
+
+    // get all TEEP function
+    public function get_teep_data($fdate,$tdate,$machine_arr,$part_arr){
+        $ref="Overall";
+        $fromTime = $fdate;
+        $toTime = $tdate;
+        $Overall = $this->getDataRaw_oee($ref,$fromTime,$toTime,$machine_arr,$part_arr);
+        return $Overall['Overall_TEEP'];
+    }
+
     // its getting final result
     public function get_final_result($temp){
 
         // print_r($temp);
         // planned downtime condition
+
+        $fdate_time = $temp['from_time'];
+        $tdate_time = $temp['to_time'];
+        $tmp_machine_arr = explode(",",$temp['machine_arr']);
+        $tmp_part_arr = explode(",",$temp['part_arr']);
+        $res = $temp['res'];
+        
+        $final_result = "";
+        switch ($res) {
+            case 'planned_downtime':
+                $res = $this->getMachineWiseOEE($fdate_time,$tdate_time);
+                // $tmp_arr = [];
+                
+                $final_arr = [];
+                foreach($res as $Key => $value){
+                    $demo_arr = [];
+                    if (in_array($value['Machine_ID'],$tmp_machine_arr)) {
+                        $demo_arr['machine_id'] = $value['Machine_ID'];
+                        // $demo_arr['planned_downtime'] = $value['Planned'];
+                        $tmp_arr = [];
+                        $total_downtime_m = 0;
+                        $total_downtime_s = 0;
+                        foreach ($value['Part_Wise'] as $k1 => $val) {
+                            if (in_array($val['part_id'],$tmp_part_arr)) {
+                                $tmp['part_id'] = $val['part_id'];
+                                $tmp['planned'] = $val['Planed'];
+                                $formatted = sprintf("%0.2f", $val['Planed']);
+                                $minute_arr = explode(".",$formatted);
+                                if (count($minute_arr)>1) {
+                                    $total_downtime_m = $total_downtime_m + $minute_arr[0];
+                                    
+                                    $total_downtime_s = $total_downtime_s + (int)$minute_arr[1];
+                                }
+                                else{
+                                    $total_downtime_m = $total_downtime_m + $minute_arr[0];
+                                }
+                               
+                                array_push($tmp_arr,$tmp);
+                            }
+                        }
+                        $demo_arr['part_list'] = $tmp_arr;
+                        if ($total_downtime_s > 59) {
+                            $total_downtime_m = $total_downtime_m + (int) $total_downtime_s/60;
+                        }else{
+                            $total_downtime_m = $total_downtime_m.'.'.(int) $total_downtime_s;
+                        }
+                        
+                        // $demo_arr['planned_downtime'] = $total_downtime_m;
+    
+                        array_push($final_arr,$total_downtime_m);
+                    }              
+                }
+                $tmp11['arr'] = $final_arr;
+                $tmp11['total_count'] = array_sum($final_arr)/60;
+                $final_result =  array_sum($final_arr)/60;
+                // $final_result = "planned downtime";
+               
+                break;
+            case 'unplanned_downtime':
+                $res = $this->getMachineWiseOEE($fdate_time,$tdate_time); 
+                $unplanned_downtime_arr = [];
+                foreach($res as $Key => $value){
+                    $demo_arr = [];
+                    if (in_array($value['Machine_ID'],$tmp_machine_arr)) {
+                        $demo_arr['machine_id'] = $value['Machine_ID'];
+                        // $demo_arr['planned_downtime'] = $value['Planned'];
+                        $tmp_arr = [];
+                        $total_downtime_m = 0;
+                        $total_downtime_s = 0;
+                        foreach ($value['Part_Wise'] as $k1 => $val) {
+                            if (in_array($val['part_id'],$tmp_part_arr)) {
+                                $tmp['part_id'] = $val['part_id'];
+                                $tmp['unplanned'] = $val['Unplanned'];
+                                $formatted = sprintf("%0.2f", $val['Unplanned']);
+                                $minute_arr = explode(".",$formatted);
+                                if (count($minute_arr)>1) {
+                                    $total_downtime_m = $total_downtime_m + $minute_arr[0];
+                                    
+                                    $total_downtime_s = $total_downtime_s + (int)$minute_arr[1];
+                                }
+                                else{
+                                    $total_downtime_m = $total_downtime_m + $minute_arr[0];
+                                }
+                               
+                                array_push($tmp_arr,$tmp);
+                            }
+                        }
+                        $demo_arr['part_list'] = $tmp_arr;
+                        if ($total_downtime_s > 59) {
+                            $total_downtime_m = $total_downtime_m + (int) $total_downtime_s/60;
+                        }else{
+                            $total_downtime_m = $total_downtime_m.'.'.(int) $total_downtime_s;
+                        }
+                        
+                        $demo_arr['unplanned_downtime'] = $total_downtime_m;
+                        array_push($unplanned_downtime_arr,$total_downtime_m);
+                    }              
+                }
+                $tmp1['unplanned_arr'] = $unplanned_downtime_arr;
+                $tmp1['total_Count'] = array_sum($unplanned_downtime_arr)/60;
+    
+                $final_result = array_sum($unplanned_downtime_arr)/60;
+                // $final_result = "unplanned downtime";
+                break;
+
+            case 'planned_machine_off':
+                $machine_data = $this->getactive_machine_data();
+                $res = $this->planned_machine_off($fdate_time,$tdate_time,$tmp_machine_arr); 
+            
+                $planned_arr = [];
+                foreach ($res as $key => $value) {
+                    if(in_array($value['machine_id'], $tmp_machine_arr)){
+                        $planned['machine_id'] = $value['machine_id'];
+                        $planned_part = [];
+                        $tmp_total_duration = 0;
+                        foreach ($value['parts_data'] as $k1 => $val) {
+                            if(in_array($val['part_id'], $tmp_part_arr)){
+                                $tmp_total_duration = $tmp_total_duration + $val['duration'];
+                                $plan['part_id'] = $val['part_id'];
+                                $plan['duration'] = $val['duration'];
+                                array_push($planned_part, $plan);
+                            }
+                        }
+                        // seconds to minute convertion
+                        $total_duration = $tmp_total_duration/60;
+                        $planned['part_data'] = $planned_part;
+                        $planned['total_duration'] = $total_duration;
+                        
+                    }
+                    array_push($planned_arr,$total_duration);
+                }            
+                
+                //total duration array
+                $tmp1['arr'] = $planned_arr;
+                $tmp1['total_duration'] = array_sum($planned_arr)/60;
+
+                $final_result = array_sum($planned_arr)/60;
+                // $final_result = "planned machine_off";
+
+                break;
+
+            case 'unplanned_machine_off':
+                $res = $this->unplanned_machine_off($fdate_time,$tdate_time,$tmp_machine_arr);
+
+                $unplanned_arr = [];
+                foreach ($res as $key => $value) {
+                    if(in_array($value['machine_id'], $tmp_machine_arr)){
+                        $unplanned['machine_id'] = $value['machine_id'];
+                        $unplanned_part = [];
+                        $tmp_total_duration = 0;
+                        foreach ($value['parts_data'] as $k1 => $val) {
+                            if(in_array($val['part_id'], $tmp_part_arr)){
+                                $tmp_total_duration = $tmp_total_duration + $val['duration'];
+                                $unplan['part_id'] = $val['part_id'];
+                                $unplan['duration'] = $val['duration'];
+                                array_push($unplanned_part, $unplan);
+                            }
+                        }
+                        // minutes convertion
+                        $total_duration = $tmp_total_duration/60;
+                        $unplanned['part_data'] = $unplanned_part;
+                        $unplanned['total_duration'] = $total_duration;
+                    }
+                    array_push($unplanned_arr,$total_duration);
+                }   
+    
+                $tmp1['arr'] = $unplanned_arr;
+                $tmp1['total_duration'] = array_sum($unplanned_arr)/60;
+    
+                $final_result = array_sum($unplanned_arr)/60; 
+                // $final_result = "unplanned machine off";
+                break;
+            
+            case 'total_unamed':
+                $res = $this->total_unamed($fdate_time,$tdate_time,$tmp_machine_arr);
+                $unamed_arr = [];
+                foreach ($res as $key => $value) {
+                    if(in_array($value['machine_id'], $tmp_machine_arr)){
+                        $unamed['machine_id'] = $value['machine_id'];
+                        $unamed_part = [];
+                        $tmp_total_duration = 0;
+                        foreach ($value['parts_data'] as $k1 => $val) {
+                            if(in_array($val['part_id'], $tmp_part_arr)){
+                                $tmp_total_duration = $tmp_total_duration + $val['duration'];
+                                $unamed_tmp['part_id'] = $val['part_id'];
+                                $unamed_tmp['duration'] = $val['duration'];
+                                array_push($unamed_part, $unamed_tmp);
+                            }
+                        }
+                        // minutes convertion
+                        $total_duration = $tmp_total_duration/60;
+                        $unamed['part_data'] = $unamed_part;
+                        $unamed['total_duration'] = $total_duration;
+                    }
+                    array_push($unamed_arr,$total_duration);
+                }   
+
+                $tmp1['arr'] = $unamed_arr;
+                $tmp1['total_duration'] = array_sum($unamed_arr)/60;
+
+                $final_result = array_sum($unamed_arr)/60; 
+                // $final_result = "total unamed";
+                break;
+
+            case 'total_downtime':
+                $res = $this->total_downtime_metric($fdate_time,$tdate_time,$tmp_machine_arr);
+
+                $downtime_arr = [];
+                foreach ($res as $key => $value) {
+                    if(in_array($value['machine_id'], $tmp_machine_arr)){
+                        $downtime['machine_id'] = $value['machine_id'];
+                        $downtime_part = [];
+                        $tmp_total_duration = 0;
+                        foreach ($value['parts_data'] as $k1 => $val) {
+                            if(in_array($val['part_id'], $tmp_part_arr)){
+                                $tmp_total_duration = $tmp_total_duration + $val['duration'];
+                                $downtime_tmp['part_id'] = $val['part_id'];
+                                $downtime_tmp['duration'] = $val['duration'];
+                                array_push($downtime_part, $downtime_tmp);
+                            }
+                        }
+                        // minutes convertion
+                        $total_duration = $tmp_total_duration/60;
+                        $downtime['part_data'] = $downtime_part;
+                        $downtime['total_duration'] = $total_duration;
+                    }
+                    array_push($downtime_arr,$total_duration);
+                }   
+
+                $tmp1['arr'] = $downtime_arr;
+                $tmp1['total_duration'] = array_sum($downtime_arr)/60;
+
+                $final_result =  array_sum($downtime_arr)/60; 
+                // $final_result = "total downtime";
+                break;
+
+            case 'total_rejection':
+                $res = $this->total_rejection($fdate_time,$tdate_time,$tmp_machine_arr,$tmp_part_arr);
+
+                $final_result = $res;
+                // $final_result = "total rejeciton";
+                break;
+            
+            case 'oee':
+                $oee_data = $this->get_oee_data($fdate_time,$tdate_time,$tmp_machine_arr,$tmp_part_arr);
+
+                $final_result =  $oee_data;
+                // $final_result = "overall oee";
+                break;
+
+            case 'ooe':
+                $ooe_data = $this->get_ooe_data($fdate_time,$tdate_time,$tmp_machine_arr,$tmp_part_arr);
+                $final_result = $ooe_data;
+                // $final_result = "overall ooe";
+                break;
+
+            case 'teep':
+                $teep_data = $this->get_teep_data($fdate_time,$tdate_time,$tmp_machine_arr,$tmp_part_arr);
+
+                $final_result =  $teep_data;
+                // $final_result = "overall teep";
+                break;
+        }
+        return $final_result;
+
+
+    /*
         if ($temp['res'] == "planned_downtime") {
-            $res = $this->getMachineWiseOEE($temp['from_time'],$temp['to_time']);
-            // $tmp_arr = [];
+            $res = $this->getMachineWiseOEE($temp['from_time'],$temp['to_time']); 
             $tmp_machine_arr = explode(",",$temp['machine_arr']);
             $tmp_part_arr = explode(",",$temp['part_arr']);
-            $final_arr = [];
-            foreach($res as $Key => $value){
-                $demo_arr = [];
-                if (in_array($value['Machine_ID'],$tmp_machine_arr)) {
-                    $demo_arr['machine_id'] = $value['Machine_ID'];
-                    // $demo_arr['planned_downtime'] = $value['Planned'];
-                    $tmp_arr = [];
-                    $total_downtime_m = 0;
-                    $total_downtime_s = 0;
-                    foreach ($value['Part_Wise'] as $k1 => $val) {
-                        if (in_array($val['part_id'],$tmp_part_arr)) {
-                            $tmp['part_id'] = $val['part_id'];
-                            $tmp['planned'] = $val['Planed'];
-                            $formatted = sprintf("%0.2f", $val['Planed']);
-                            $minute_arr = explode(".",$formatted);
-                            if (count($minute_arr)>1) {
-                                $total_downtime_m = $total_downtime_m + $minute_arr[0];
-                                
-                                $total_downtime_s = $total_downtime_s + (int)$minute_arr[1];
+                $final_arr = [];
+                foreach($res as $Key => $value){
+                    $demo_arr = [];
+                    if (in_array($value['Machine_ID'],$tmp_machine_arr)) {
+                        $demo_arr['machine_id'] = $value['Machine_ID'];
+                        // $demo_arr['planned_downtime'] = $value['Planned'];
+                        $tmp_arr = [];
+                        $total_downtime_m = 0;
+                        $total_downtime_s = 0;
+                        foreach ($value['Part_Wise'] as $k1 => $val) {
+                            if (in_array($val['part_id'],$tmp_part_arr)) {
+                                $tmp['part_id'] = $val['part_id'];
+                                $tmp['planned'] = $val['Planed'];
+                                $formatted = sprintf("%0.2f", $val['Planed']);
+                                $minute_arr = explode(".",$formatted);
+                                if (count($minute_arr)>1) {
+                                    $total_downtime_m = $total_downtime_m + $minute_arr[0];
+                                    
+                                    $total_downtime_s = $total_downtime_s + (int)$minute_arr[1];
+                                }
+                                else{
+                                    $total_downtime_m = $total_downtime_m + $minute_arr[0];
+                                }
+                               
+                                array_push($tmp_arr,$tmp);
                             }
-                            else{
-                                $total_downtime_m = $total_downtime_m + $minute_arr[0];
-                            }
-                           
-                            array_push($tmp_arr,$tmp);
                         }
-                    }
-                    $demo_arr['part_list'] = $tmp_arr;
-                    if ($total_downtime_s > 59) {
-                        $total_downtime_m = $total_downtime_m + (int) $total_downtime_s/60;
-                    }else{
-                        $total_downtime_m = $total_downtime_m.'.'.(int) $total_downtime_s;
-                    }
-                    
-                    // $demo_arr['planned_downtime'] = $total_downtime_m;
-
-                    array_push($final_arr,$total_downtime_m);
-                }              
-            }
-            $tmp11['arr'] = $final_arr;
-            $tmp11['total_count'] = array_sum($final_arr)/60;
-            return array_sum($final_arr)/60;
+                        $demo_arr['part_list'] = $tmp_arr;
+                        if ($total_downtime_s > 59) {
+                            $total_downtime_m = $total_downtime_m + (int) $total_downtime_s/60;
+                        }else{
+                            $total_downtime_m = $total_downtime_m.'.'.(int) $total_downtime_s;
+                        }
+                        
+                        // $demo_arr['planned_downtime'] = $total_downtime_m;
+    
+                        array_push($final_arr,$total_downtime_m);
+                    }              
+                }
+                $tmp11['arr'] = $final_arr;
+                $tmp11['total_count'] = array_sum($final_arr)/60;
+                return array_sum($final_arr)/60;
         }
         // unplanned downtime condition
         elseif ($temp['res'] == "unplanned_downtime") {
@@ -1203,6 +1874,35 @@ class Api_handling{
             return $res;
             
         }
+        // total oee condition
+        elseif($temp['res']=="oee"){
+            // return "total_oee";
+            $tmp_machine_arr = explode(",",$temp['machine_arr']);
+            $tmp_part_arr = explode(",",$temp['part_arr']);
+
+            $oee_data = $this->get_oee_data($temp['from_time'],$temp['to_time'],$tmp_machine_arr,$tmp_part_arr);
+
+            return $oee_data;
+
+        }
+
+        // TOTAL ooe condition
+        elseif ($temp['res']=="ooe") {
+            $tmp_machine_arr = explode(",",$temp['machine_arr']);
+            $tmp_part_arr = explode(",",$temp['part_arr']);
+            $ooe_data = $this->get_ooe_data($temp['from_time'],$temp['to_time'],$tmp_machine_arr,$tmp_part_arr);
+            return $ooe_data;
+        }
+
+        elseif ($temp['res']=="teep") {
+            $tmp_machine_arr = explode(",",$temp['machine_arr']);
+            $tmp_part_arr = explode(",",$temp['part_arr']);
+            $teep_data = $this->get_teep_data($temp['from_time'],$temp['to_time'],$tmp_machine_arr,$tmp_part_arr);
+
+            return $teep_data;
+        }
+
+        */
 
 
     }
@@ -1230,9 +1930,9 @@ echo  json_encode($obj->get_final_result($temp));
 
 
 // $obj = new Api_handling('s1001');
-// $temp['from_time'] = "2023-04-21T06:00:00";
-// $temp['to_time'] = "2023-04-22T17:00:00";
-// $temp['res'] = "total_rejection";
+// $temp['from_time'] = "2023-04-22T06:00:00";
+// $temp['to_time'] = "2023-04-24T06:00:00";
+// $temp['res'] = "teep";
 // $temp['machine_arr'] = "all,MC1001,MC1002,MC1003,MC1004,MC1005,MC1006";
 // $temp['part_arr'] = "all,PT1001,PT1002,PT1003,PT1004,PT1005,PT1006,PT1007,PT1008,PT1009,PT1010,PT1011,PT1012,PT1013,PT1014,PT1015,PT1016,PT1017,PT1018,PT1019,PT1020,PT1021,PT1022,PT1023,PT1024,PT1025,PT1026,PT1027,PT1028,PT1029,PT1030,PT1031,PT1032,PT1033,PT1034,PT1035,PT1036,PT1037,PT1038,PT1039,PT1040,PT1041,PT1042,PT1043,PT1044,PT1045";
 // echo "<pre>";
