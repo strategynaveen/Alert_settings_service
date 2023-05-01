@@ -329,13 +329,17 @@ def mysql_res():
 
 k = 0
 while True:
-    k = k+1
-    current_time_insert_log = datetime.datetime.now()
-    current_time_insert_log = current_time_insert_log.strftime("%Y-%m-%dT%H:00:00")
+    # print("hi")
+    now = datetime.datetime.now()
+    if(int(now.strftime("%M"))==0):
+        
+        k = k+1
+        current_time_insert_log = datetime.datetime.now()
+        current_time_insert_log = current_time_insert_log.strftime("%Y-%m-%dT%H:00:00")
 
-    logger_header_title(current_time_insert_log,k)
-    logger_space()
-    mysql_res()
-    print("end count of ",k)
-    logger_space()
-    time.sleep(3600)
+        logger_header_title(current_time_insert_log,k)
+        logger_space()
+        mysql_res()
+        print("end count of ",k)
+        logger_space()
+        time.sleep(60)
