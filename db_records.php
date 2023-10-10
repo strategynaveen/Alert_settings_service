@@ -7,7 +7,7 @@ class db_records{
     public function __construct($site_id){
         $server_name = "localhost";
         $user_name = "root";
-        $password = "";
+        $password = "quantanics123";
         $db_name = $site_id;
         $this->con = mysqli_connect($server_name, $user_name, $password,$db_name);
 
@@ -275,6 +275,27 @@ class db_records{
         }
            
         return $production_data;
+        
+    }
+
+    // total unnamed function
+    public function get_unnamed_count($fdate,$tdate,$stime,$ttime,$machine_arr){
+        $sql="SELECT COUNT(downtime_reason_id) as downtime_count FROM `pdm_downtime_reason_mapping` WHERE shift_date>='$fdate' and shift_date<='$tdate' and start_time>='$stime' and end_time<='$ttime' and downtime_reason_id='0' and machine_id IN ('" . implode( "', '", $machine_arr ) . "') ";
+        $res = $this->con->query($sql);
+        $unnamed_data = [];
+        if ($res) {
+            while($data = $res->fetch_assoc()){
+                array_push($unnamed_data, $data);
+            }
+        }
+
+        // $tmp['fdate'] = $fdate;
+        // $tmp['tdate'] = $tdate;
+        // $tmp['stime'] = $stime;
+        // $tmp['ttime'] = $ttime;
+        // $tmp['machine_arr'] = $machine_arr;
+           
+        return $unnamed_data;
         
     }
 

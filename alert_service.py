@@ -281,7 +281,9 @@ def analysis_metrics(i):
         "site_id":"S1001",
         "res":i[2],
     }
-    api_array = requests.post("http://165.22.208.52/alert_service/index.php",params=par)
+    # api_array = requests.post("http://165.22.208.52/alert_service/index.php",params=par)
+    api_array = requests.post("http://127.0.0.1/alert_service_change/index.php",params=par)
+
     #final_api_record = json.dumps(api_array)
     print(api_array.status_code)
     print(api_array.json())
@@ -337,7 +339,7 @@ k = 0
 while True:
     # print("hi")
     now = datetime.datetime.now()
-    if(int(now.strftime("%M"))==0):
+    if(int(now.strftime("%M"))>=0):
 	
         k = k+1
         current_time_insert_log = datetime.datetime.now()
