@@ -19,6 +19,7 @@ class db_records{
 
 
 
+
     public function PartDetails(){
         $sql = "SELECT part_id,part_price,NICT,part_name from settings_part_current";
         $res = $this->con->query($sql);
@@ -49,7 +50,7 @@ class db_records{
 
     // raw data production info table data
     public function getDataRaw($FromDate,$FromTime,$ToDate,$ToTime){
-        $sql_reason = "SELECT t.machine_event_id,t.machine_id,t.downtime_reason_id,t.tool_id,t.part_id,t.shift_date,t.start_time,t.end_time,t.split_duration,t.calendar_date,r.downtime_category,r.downtime_reason FROM `pdm_downtime_reason_mapping` as t INNER JOIN settings_downtime_reasons as r on t.downtime_reason_id = r.downtime_reason_id  WHERE t.shift_date>='$FromDate' and t.shift_date<='$ToDate'";
+        $sql_reason = "SELECT t.machine_event_id,t.machine_id,t.downtime_reason_id,t.tool_id,t.part_id,t.shift_date,t.start_time,t.end_time,t.split_duration,t.calendar_date,r.downtime_category,r.downtime_reason  FROM `pdm_downtime_reason_mapping` as t INNER JOIN settings_downtime_reasons as r on t.downtime_reason_id = r.downtime_reason_id  WHERE t.shift_date>='$FromDate' and t.shift_date<='$ToDate'";
         $result = $this->con->query($sql_reason);
         $production_data_reason = [];
         if ($result) {
@@ -64,9 +65,9 @@ class db_records{
 	    return $production_data_reason;
     }
 
-    // events data
+    // events table  data
     public function getDataRawAll($FromDate,$ToDate){
-        $query_sql = "SELECT * FROM `pdm_events` WHERE shift_date>='$FromDate' and shift_date<='$ToDate' and event!='Offline' and event != 'No Data' ";
+        $query_sql = "SELECT machine_id,tool_id,part_id,shift_date,start_time,end_time,duration,calendar_date,event FROM `pdm_events` WHERE shift_date>='$FromDate' and shift_date<='$ToDate' and (event !='Offline' OR event !='No Data') ";
         $res = $this->con->query($query_sql);
         $pdm_event_data = [];
         if ($res) {
@@ -83,7 +84,7 @@ class db_records{
 
     // get offline and downtime records
     public function getOfflineEventId($FromDate,$FromTime,$ToDate,$ToTime){
-        $query = "SELECT * FROM `pdm_events` WHERE shift_date>='$FromDate' and shift_date<='$ToDate' and event='Offline' or event = 'No Data' ";
+        $query = "SELECT event,machine_id,machine_event_id FROM `pdm_events` WHERE shift_date>='$FromDate' and shift_date<='$ToDate' and (event='Offline' or event = 'No Data') ";
         $res = $this->con->query($query);
 
         $pdm_event_data1 = [];
@@ -128,7 +129,7 @@ class db_records{
     // info records data
     public function getProductionRec($FromDate,$ToDate){
        
-        $sql_query = "SELECT machine_id,calendar_date,shift_date,start_time,end_time,part_id,tool_id,production,corrections,rejections,reject_reason,actual_shot_count FROM pdm_production_info WHERE shift_date>='$FromDate' and shift_date<='$ToDate' and production != null";
+        $sql_query = "SELECT machine_id,calendar_date,shift_date,start_time,end_time,part_id,tool_id,production,corrections,rejections,reject_reason,actual_shot_count FROM `pdm_production_info` WHERE shift_date>='".$FromDate."' and shift_date<='".$ToDate."' and production is not null";
         $res = $this->con->query($sql_query);
         $pdm_info_record = [];
         if ($res) {
@@ -139,6 +140,7 @@ class db_records{
             } 
         }
        
+        // return $FromDate." ".$ToDate;
         return $pdm_info_record;
     }
 

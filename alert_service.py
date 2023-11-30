@@ -294,16 +294,7 @@ def analysis_metrics(i):
         alert_service_log("Alert service api data",rp)
         # print(len(rp))
         print(i)
-        # final_res = check_metrics(rp,i)
-        # print(final_res)
-        # if(final_res !="empty"):
-        #     if(i[20]=='all'):
-        #         mail_alert(i,final_res)
-        #         work_alert(i,final_res)
-        #     elif(i[20]=='email'):
-        #         mail_alert(i,final_res)
-        #     elif(i[20]=='work'):
-        #         work_alert(i,final_res)  
+        
         check_metrics(rp,i)          
         # else:
         #     print("Error")
@@ -311,13 +302,7 @@ def analysis_metrics(i):
         print(type(api_array))
         print(i[2])
 
-    # elif(i[2]=="unplanned_downtime"):
-    #     print("planned downtime")
-    # elif(i[2]=="planned_machine_off"):
-    #     print("planned machine off")
-    # elif(i[2]=="unplanned_machine_off"):
-    #     print("unplanned machine off")
-
+   
 def mysql_res():
     mydb = mysql.connector.connect(
         host="localhost",
