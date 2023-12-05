@@ -1066,43 +1066,45 @@ class Api_handling{
     }
 
     // unplanned machine off duration calculation function
-    // public function unplanned_machineoff_calculation($from_data,$to_date,$machine_arr,$part_arr){
-    //     // return $tmp_data;
-    //     $event_data = $this->getDataRaw("unplanned_machineoff",$from_data,$to_date);
-    //     // return $event_data;
-    //     $total_minutes = 0;
-    //     $total_seconds = 0;
-    //     $count = 0;
-    //     // $demo_arr = [];
-    //     foreach ($event_data as $key => $value) {
-    //         if (in_array($value['machine_id'],$machine_arr)) {
-    //             if (in_array($value['part_id'],$part_arr)) {
-    //                 // $tmp_event = implode(" ",$value['event']);
-    //                 if ($value['event'] == "Machine OFF") {
-    //                     // array_push($demo_arr,$event_data[$key]);
-    //                     $duration_arr = explode(".",$value['duration']);
-    //                     if (sizeof($duration_arr)>1) {
-    //                        $total_minutes = $total_minutes + $duration_arr[0];
-    //                        $total_seconds = $total_seconds + $duration_arr[1]; 
-    //                     }else{
-    //                         $total_seconds = $total_seconds + $duration_arr[0];
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     }
+    /*
+    public function unplanned_machineoff_calculation($from_data,$to_date,$machine_arr,$part_arr){
+        // return $tmp_data;
+        $event_data = $this->getDataRaw("unplanned_machineoff",$from_data,$to_date);
+        // return $event_data;
+        $total_minutes = 0;
+        $total_seconds = 0;
+        $count = 0;
+        // $demo_arr = [];
+        foreach ($event_data as $key => $value) {
+            if (in_array($value['machine_id'],$machine_arr)) {
+                if (in_array($value['part_id'],$part_arr)) {
+                    // $tmp_event = implode(" ",$value['event']);
+                    if ($value['event'] == "Machine OFF") {
+                        // array_push($demo_arr,$event_data[$key]);
+                        $duration_arr = explode(".",$value['duration']);
+                        if (sizeof($duration_arr)>1) {
+                           $total_minutes = $total_minutes + $duration_arr[0];
+                           $total_seconds = $total_seconds + $duration_arr[1]; 
+                        }else{
+                            $total_seconds = $total_seconds + $duration_arr[0];
+                        }
+                    }
+                }
+            }
+        }
 
 
-    //     // $tmp_dm_data['data'] = $demo_arr;
-    //     // $tmp_dm_data['total_minutes'] = $total_minutes;
-    //     // $tmp_dm_data['total_seconds'] = $total_seconds;
-    //     // first seconds convert minutes after sume the total minutes and seconds conversion minutes
-    //     $total_minutes_convertion = ($total_minutes + ($total_seconds/60));
-    //     // minutes to hourly connection
-    //     $hourly_result = (float)($total_minutes_convertion/60);
-    //     return $hourly_result;
+        // $tmp_dm_data['data'] = $demo_arr;
+        // $tmp_dm_data['total_minutes'] = $total_minutes;
+        // $tmp_dm_data['total_seconds'] = $total_seconds;
+        // first seconds convert minutes after sume the total minutes and seconds conversion minutes
+        $total_minutes_convertion = ($total_minutes + ($total_seconds/60));
+        // minutes to hourly connection
+        $hourly_result = (float)($total_minutes_convertion/60);
+        return $hourly_result;
 
-    // }
+    }
+    */
 
 
     // main function its the result function
@@ -1187,6 +1189,7 @@ class Api_handling{
 
 
 // automation
+
 $dbcon['servername'] = "localhost";
 $dbcon['username'] = "root";
 $dbcon['password'] = "quantanics123";

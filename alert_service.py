@@ -16,7 +16,7 @@ def alert_service_log(msg,val):
 # logger header
 def logger_header_title(hmsg,count):
     file1 = open("alert_service_log.log", "a")  # append mode
-    file1.write("Alert service count "+str(hmsg)+" count no : "+str(count))
+    file1.write("Alert service starting =========="+str(hmsg)+"==========count no : "+str(count)+"=====================\n")
     file1.close()
 
 
@@ -33,7 +33,7 @@ def update_matched_time(aid,future_time):
         host="localhost",
         user="root",
         password="quantanics123",
-        database="S1001"
+        database="S1002"
     )
 
     mycursor = db_connect.cursor()
@@ -51,13 +51,10 @@ def mail_alert(set_arr,final_res):
     print("mail function")
     print(set_arr)
     print(final_res)
-    print(set_arr[9])
-    print(set_arr[10])
+   
     to_mail_arr = set_arr[9].split(',')
     cc_mail_arr = set_arr[10].split(',')
-    print("array mail")
-    print(to_mail_arr)
-    print(cc_mail_arr)
+   
     if len(to_mail_arr)>1 and len(cc_mail_arr)>1:
         recipients = to_mail_arr + cc_mail_arr
 
@@ -108,7 +105,7 @@ def get_work_order_id(tmp_site_id):
     myresult = mycursor_obj.fetchall()
     if len(myresult)>0:
         work_order_id = 'S'+str(site_number)+'-W'+str(len(myresult))
-        #return work_order_id
+
     else:
         work_order_id = 'S'+str(site_number)+'-W1'
 
@@ -123,25 +120,18 @@ def work_alert(set_arr,final_res):
         host="localhost",
         user="root",
         password="quantanics123",
-        database="S1001"
+        database="S1002"
     )
     mycon = mydb.cursor()
-    print("work array")
-    print(set_arr)
-    print(final_res)
+   
     if set_arr[21]!="email":
-        print(set_arr[11])
-        print(set_arr[12])
-        print(set_arr[17])
-        print(set_arr[13])
-        print(set_arr[8])
-        print(set_arr[18])
+        
         # sql_work = "INSERT INTO `work_order_management`(`r_no`, `work_order_id`, `type`, `title`, `description`, `priority_id`, `assignee`, `due_date`, `status_id`, `cause_id`, `action_id`, `lable_id`, `comment_id`, `attachment_id`, `status`, `last_updated_by`, `last_updated_on`) VALUES ('[value-1]','[value-2]','[value-3]','[value-4]','[value-5]','[value-6]','[value-7]','[value-8]','[value-9]','[value-10]','[value-11]','[value-12]','[value-13]','[value-14]','[value-15]','[value-16]','[value-17]')"
         tmp_work_order_id = get_work_order_id("demo")
-        print(tmp_work_order_id)
+        
         due_date = datetime.datetime.today()+datetime.timedelta(days = int(set_arr[14]))
         due_date = due_date.strftime("%Y-%m-%d")
-        print(due_date)
+        
         sql_work = "INSERT INTO `work_order_management`( `work_order_id`,`type`, `title`,`priority_id`, `assignee`,`due_date`,`status_id`,`lable_id`,`status`, `last_updated_by`) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
         val = (tmp_work_order_id,set_arr[11],set_arr[12],str(set_arr[17]),set_arr[13],due_date,'1',set_arr[8],'1',set_arr[18])
         mycon.execute(sql_work, val)
@@ -154,26 +144,17 @@ def work_alert(set_arr,final_res):
 def check_metrics(res,li):
     result = ""
     set_val = float(li[4])
-    # if li[2]=="planned_downtime":
-    #     get_val = float(res)
-    # elif li[2]=="unplanned_downtime":
-    #     get_val = float(res)
-    # elif li[2]=="planned_machine_off":
-    #     get_val = float(res)
-    # elif li[2]=="unplanned_machine_off":
-    #     get_val = float(res)
-    # else:
-    #     get_val = float(res)
+    
    
-    if res != None:
+    if res is not None:
         get_val = float(res)
-    elif res == None:
+    elif res is None:
         get_val = 0
 
     alert_msg = "alert metrics aid"+str(li[0])+" the metrics is"+str(get_val)+" "+str(li[3])+" "+str(set_val)
     
-    print(get_val)
-    print(set_val)
+    print("api result data:\t"+str(get_val))
+    print("existing data:\t"+str(set_val))
     if(li[3]=='<'):
         if(get_val < set_val):
             result="success"
@@ -200,11 +181,9 @@ def check_metrics(res,li):
         else:
             result="fail"
         
-    print(result)
+    
     alert_service_log(alert_msg,result)
-    print(get_val)
-    print(set_val)
-    print(li[4])
+  
     one_hour_Time = datetime.datetime.now()
     one_hour_extend = one_hour_Time + datetime.timedelta(hours = int(1))
     one_hour_extend = one_hour_extend.strftime("%Y-%m-%dT%H:00:00")
@@ -218,9 +197,7 @@ def check_metrics(res,li):
         print("check metrics function")
         print(li[22])
         if(li[22]==None):
-            print("metrics empty string")
-            print(future_date_Time)
-            print(li[22])
+            
             update_matched_time(li[0],future_date_Time)
             if li[20]=="all":
                 work_alert(li,get_val)
@@ -230,12 +207,9 @@ def check_metrics(res,li):
                 work_alert(li,get_val)
             elif li[20]=="email":
                 mail_alert(li,get_val)
-                #return k['planned_downtime']
-                # return get_val
+               
         elif(li[22]==current_Time_compare):
-            print("metrics  string matching")
-            print(current_Time_compare)
-            print(li[22])
+           
             update_matched_time(li[0],future_date_Time)
             if li[20]=="all":
                 work_alert(li,get_val)
@@ -244,15 +218,11 @@ def check_metrics(res,li):
                 work_alert(li,get_val)
             elif li[20]=="email":
                 mail_alert(li,get_val)
-                #return k['planned_downtime']
-                # return get_val
+                
         else:
             if current_Time_compare > li[22]:
                 update_matched_time(li[0],one_hour_extend)
-            print("empty records")
-            print(current_Time_compare)
-            print(li[22])
-            # return "empty"
+            
     else:
         if(li[22]==None):
             update_matched_time(li[0],one_hour_extend)
@@ -271,36 +241,28 @@ def analysis_metrics(i):
     previous_date_Time = datetime.datetime.now() - datetime.timedelta(hours = int(i[5]))
     previous_date_Time = previous_date_Time.strftime("%Y-%m-%dT%H:00:00")
     
-    print(previous_date_Time)
-    print(current_date_time)
+    print("fromt time:\t"+previous_date_Time)
+    print("to time:\t"+current_date_time)
     par = {
         "from_time": previous_date_Time,
         "to_time": current_date_time,
         "machine_arr":i[6],
         "part_arr":i[7],
-        "site_id":"S1001",
+        "site_id":"S1002",
         "res":i[2],
     }
     # api_array = requests.post("http://165.22.208.52/alert_service/index.php",params=par)
-    api_array = requests.post("http://127.0.0.1/alert_service_change/index.php",params=par)
+    api_array = requests.post("http://localhost/alert_service_change/corrected_index.php",params=par)
 
     #final_api_record = json.dumps(api_array)
-    print(api_array.status_code)
-    print(api_array.json())
     alert_service_log("Alert service api status",api_array.status_code)
     if api_array.status_code == 200:
         rp = api_array.json()
-        print(rp)
+    
         alert_service_log("Alert service api data",rp)
-        # print(len(rp))
-        print(i)
         
         check_metrics(rp,i)          
-        # else:
-        #     print("Error")
-            
-        print(type(api_array))
-        print(i[2])
+        
 
    
 def mysql_res():
@@ -308,7 +270,7 @@ def mysql_res():
         host="localhost",
         user="root",
         password="quantanics123",
-        database="S1001"
+        database="S1002"
     )
 
     mycursor = mydb.cursor()
@@ -316,16 +278,15 @@ def mysql_res():
     myres = mycursor.fetchall()
 
     for i in myres:
-        print('')
         alert_service_log("Alert service id",i)
         analysis_metrics(i)
 
 k = 0
 while True:
-    # print("hi")
+    
     now = datetime.datetime.now()
     if(int(now.strftime("%M"))>=0):
-	
+        print("=======================Alert service started============================")
         k = k+1
         current_time_insert_log = datetime.datetime.now()
         current_time_insert_log = current_time_insert_log.strftime("%Y-%m-%dT%H:00:00")
